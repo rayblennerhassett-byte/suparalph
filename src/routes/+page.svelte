@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { BreachEngine } from '$lib/engine/breach-engine';
 	import { ALL_ATTACKS, getTotalAttackCount } from '$lib/engine/attacks';
+	import { SCAN_TIMEOUTS, SCAN_CONCURRENCY, SCAN_DELAYS } from '$lib/config/scan';
 
 	let showContent = $state(false);
 	let scanUrl = $state('');
@@ -172,7 +173,7 @@
 		try {
 			const checkResponse = await Promise.race([
 				fetch(`${fixedUrl}/rest/v1/`, { method: 'HEAD', mode: 'no-cors' }),
-				new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+				new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), SCAN_TIMEOUTS.URL_REACHABILITY))
 			]);
 			// If we get here, server is reachable (no-cors returns opaque response)
 		} catch {
@@ -213,9 +214,9 @@
 			// Run BreachEngine directly in the browser - no server timeout issues!
 			const engine = new BreachEngine(
 				{
-					concurrency: 3,
-					attackTimeout: 10000,
-					delayBetweenAttacks: 50,
+					concurrency: SCAN_CONCURRENCY.BROWSER,
+					attackTimeout: SCAN_TIMEOUTS.BROWSER_ATTACK,
+					delayBetweenAttacks: SCAN_DELAYS.BROWSER,
 					stopOnBreach: false
 				},
 				{

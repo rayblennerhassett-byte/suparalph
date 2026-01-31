@@ -15,6 +15,7 @@ import type {
 } from '$lib/types/attacks';
 import { ATTACK_CATEGORIES, SEVERITY_LEVELS } from '$lib/types/attacks';
 import { getFixForVulnerability } from './fixes';
+import { SCAN_TIMEOUTS, SCAN_CONCURRENCY, SCAN_DELAYS } from '$lib/config/scan';
 
 export interface BreachEngineConfig {
 	// Max concurrent attacks
@@ -40,9 +41,9 @@ export interface BreachEngineCallbacks {
 }
 
 const DEFAULT_CONFIG: BreachEngineConfig = {
-	concurrency: 3,
-	attackTimeout: 30000,
-	delayBetweenAttacks: 100,
+	concurrency: SCAN_CONCURRENCY.DEFAULT,
+	attackTimeout: SCAN_TIMEOUTS.DEFAULT_ATTACK,
+	delayBetweenAttacks: SCAN_DELAYS.DEFAULT,
 	stopOnBreach: false
 };
 
