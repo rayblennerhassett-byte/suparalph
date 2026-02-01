@@ -8,8 +8,8 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total SupaShield Attacks** | 252 |
-| **Attack Modules** | 37 |
+| **Total SupaRalph Attacks** | 269 |
+| **Attack Modules** | 40 |
 | **Benchmark Tests** | 49 |
 | **Tests Passed (Breached)** | 49/49 (100%) |
 | **Critical Vulnerabilities** | 25 |
