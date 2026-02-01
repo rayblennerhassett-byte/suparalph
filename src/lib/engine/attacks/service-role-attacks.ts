@@ -4,6 +4,7 @@
  */
 
 import type { AttackVector, AttackContext, AttackResult } from '$lib/types/attacks';
+import { parseJWT, parseJWTPayload } from '$lib/utils/jwt';
 
 /**
  * Service Role Key Detection Attacks
@@ -74,18 +75,15 @@ export const serviceRoleAttacks: AttackVector[] = [
 			} catch {}
 
 			// Test 3: Check JWT claims for role
-			try {
-				const parts = ctx.anonKey.split('.');
-				if (parts.length === 3) {
-					const payload = JSON.parse(atob(parts[1]));
-					if (payload.role === 'service_role') {
-						findings.push('CRITICAL: JWT role is "service_role" - this key bypasses ALL RLS!');
-						breached = true;
-					} else if (payload.role === 'authenticated' && !payload.sub) {
-						findings.push('WARNING: Authenticated role without user ID - suspicious key');
-					}
+			const payload = parseJWTPayload(ctx.anonKey);
+			if (payload) {
+				if (payload.role === 'service_role') {
+					findings.push('CRITICAL: JWT role is "service_role" - this key bypasses ALL RLS!');
+					breached = true;
+				} else if (payload.role === 'authenticated' && !payload.sub) {
+					findings.push('WARNING: Authenticated role without user ID - suspicious key');
 				}
-			} catch {}
+			}
 
 			return {
 				attackId: 'service-role-key-exposed',
@@ -406,75 +404,8 @@ export const serviceRoleAttacks: AttackVector[] = [
 			const findings: string[] = [];
 			let breached = false;
 
-			try {
-				const parts = ctx.anonKey.split('.');
-				if (parts.length !== 3) {
-					return {
-						attackId: 'service-role-jwt-analysis',
-						status: 'error',
-						breached: false,
-						summary: 'Invalid JWT format'
-					};
-				}
-
-				const header = JSON.parse(atob(parts[0]));
-				const payload = JSON.parse(atob(parts[1]));
-
-				// Check role
-				if (payload.role === 'service_role') {
-					findings.push('CRITICAL: Token has service_role - bypasses all RLS!');
-					breached = true;
-				} else if (payload.role === 'supabase_admin') {
-					findings.push('CRITICAL: Token has supabase_admin role!');
-					breached = true;
-				} else if (payload.role === 'postgres') {
-					findings.push('CRITICAL: Token has postgres superuser role!');
-					breached = true;
-				}
-
-				// Check for suspicious claims
-				if (payload.is_super_admin) {
-					findings.push('Token has is_super_admin claim');
-					breached = true;
-				}
-
-				if (payload.aal === 'aal2' && !payload.amr) {
-					findings.push('WARNING: AAL2 without AMR - suspicious token');
-				}
-
-				// Check expiration
-				if (payload.exp) {
-					const expDate = new Date(payload.exp * 1000);
-					const now = new Date();
-					const daysUntilExpiry = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-
-					if (daysUntilExpiry > 365) {
-						findings.push(`WARNING: Token expires in ${Math.round(daysUntilExpiry)} days - unusually long`);
-					}
-				}
-
-				// Check issuer
-				if (!payload.iss || !payload.iss.includes('supabase')) {
-					findings.push('WARNING: Unusual token issuer');
-				}
-
-				return {
-					attackId: 'service-role-jwt-analysis',
-					status: breached ? 'breached' : findings.length > 0 ? 'breached' : 'secure',
-					breached: breached || findings.length > 0,
-					summary: breached
-						? 'CRITICAL: Elevated privilege token detected!'
-						: findings.length > 0
-							? `Found ${findings.length} JWT concerns`
-							: 'JWT appears to be standard anon key',
-					details: {
-						role: payload.role,
-						issuer: payload.iss,
-						findings
-					},
-					evidence: { role: payload.role, findings }
-				};
-			} catch (e) {
+			const jwt = parseJWT(ctx.anonKey);
+			if (!jwt) {
 				return {
 					attackId: 'service-role-jwt-analysis',
 					status: 'error',
@@ -482,6 +413,63 @@ export const serviceRoleAttacks: AttackVector[] = [
 					summary: 'Could not parse JWT token'
 				};
 			}
+
+			const { payload } = jwt;
+
+			// Check role
+			if (payload.role === 'service_role') {
+				findings.push('CRITICAL: Token has service_role - bypasses all RLS!');
+				breached = true;
+			} else if (payload.role === 'supabase_admin') {
+				findings.push('CRITICAL: Token has supabase_admin role!');
+				breached = true;
+			} else if (payload.role === 'postgres') {
+				findings.push('CRITICAL: Token has postgres superuser role!');
+				breached = true;
+			}
+
+			// Check for suspicious claims
+			if (payload.is_super_admin) {
+				findings.push('Token has is_super_admin claim');
+				breached = true;
+			}
+
+			if (payload.aal === 'aal2' && !payload.amr) {
+				findings.push('WARNING: AAL2 without AMR - suspicious token');
+			}
+
+			// Check expiration
+			if (payload.exp) {
+				const expDate = new Date((payload.exp as number) * 1000);
+				const now = new Date();
+				const daysUntilExpiry = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+
+				if (daysUntilExpiry > 365) {
+					findings.push(`WARNING: Token expires in ${Math.round(daysUntilExpiry)} days - unusually long`);
+				}
+			}
+
+			// Check issuer
+			if (!payload.iss || !(payload.iss as string).includes('supabase')) {
+				findings.push('WARNING: Unusual token issuer');
+			}
+
+			return {
+				attackId: 'service-role-jwt-analysis',
+				status: breached ? 'breached' : findings.length > 0 ? 'breached' : 'secure',
+				breached: breached || findings.length > 0,
+				summary: breached
+					? 'CRITICAL: Elevated privilege token detected!'
+					: findings.length > 0
+						? `Found ${findings.length} JWT concerns`
+						: 'JWT appears to be standard anon key',
+				details: {
+					role: payload.role,
+					issuer: payload.iss,
+					findings
+				},
+				evidence: { role: payload.role, findings }
+			};
 		}
 	}
 ];

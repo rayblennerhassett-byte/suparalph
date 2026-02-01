@@ -11,6 +11,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { BreachEngine } from '$lib/engine/breach-engine';
 import { ALL_ATTACKS, getTotalAttackCount } from '$lib/engine/attacks';
+import { SCAN_TIMEOUTS, SCAN_CONCURRENCY, SCAN_DELAYS } from '$lib/config/scan';
 
 // In-memory rate limiter (resets on server restart)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -98,9 +99,9 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const engine = new BreachEngine(
 			{
-				concurrency: 5,
-				attackTimeout: 15000,
-				delayBetweenAttacks: 50,
+				concurrency: SCAN_CONCURRENCY.SERVER,
+				attackTimeout: SCAN_TIMEOUTS.SERVER_ATTACK,
+				delayBetweenAttacks: SCAN_DELAYS.SERVER,
 				stopOnBreach: false
 			},
 			{
@@ -199,7 +200,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 				}
 			};
 
-			// Keep-alive heartbeat every 15 seconds to prevent proxy timeouts
+			// Keep-alive heartbeat to prevent proxy timeouts
 			const heartbeat = setInterval(() => {
 				if (isOpen) {
 					try {
@@ -209,7 +210,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 						clearInterval(heartbeat);
 					}
 				}
-			}, 15000);
+			}, SCAN_TIMEOUTS.SSE_HEARTBEAT);
 
 			let completed = 0;
 			const total = getTotalAttackCount();
@@ -217,9 +218,9 @@ export const GET: RequestHandler = async ({ url, request }) => {
 
 			const engine = new BreachEngine(
 				{
-					concurrency: 3, // Reduced from 5 to be gentler
-					attackTimeout: 8000, // Reduced from 10s
-					delayBetweenAttacks: 50, // Increased from 30ms
+					concurrency: SCAN_CONCURRENCY.SERVER_SSE,
+					attackTimeout: SCAN_TIMEOUTS.SERVER_SSE_ATTACK,
+					delayBetweenAttacks: SCAN_DELAYS.SERVER_SSE,
 					stopOnBreach: false
 				},
 				{

