@@ -10,64 +10,6 @@ import type { AttackVector, AttackContext, AttackResult } from '$lib/types/attac
  */
 export const storageAdvancedAttacks: AttackVector[] = [
 	{
-		id: 'storage-signed-url-expiry',
-		name: 'Signed URL Long Expiry',
-		description: 'Tests if signed URLs have excessively long expiry times',
-		category: 'storage',
-		severity: 'medium',
-		tags: ['storage', 'signed-url', 'expiry'],
-		execute: async (ctx: AttackContext): Promise<AttackResult> => {
-			// Check storage configuration for signed URL expiry
-			const buckets = ['avatars', 'uploads', 'public', 'private', 'documents'];
-			const longExpiry: Array<{ bucket: string; maxAge: number }> = [];
-
-			for (const bucket of buckets) {
-				try {
-					// Try to create a signed URL via RPC if available
-					const response = await fetch(`${ctx.targetUrl}/storage/v1/object/sign/${bucket}/test`, {
-						method: 'POST',
-						headers: {
-							apikey: ctx.serviceKey,
-							Authorization: `Bearer ${ctx.serviceKey}`,
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({ expiresIn: 31536000 }) // Try 1 year
-					});
-
-					if (response.ok) {
-						const data = await response.json();
-						if (data.signedURL) {
-							// Check URL expiry parameter
-							const url = new URL(data.signedURL, ctx.targetUrl);
-							const token = url.searchParams.get('token');
-							if (token) {
-								// Very long expiry accepted
-								longExpiry.push({ bucket, maxAge: 31536000 });
-							}
-						}
-					}
-				} catch {
-					// Continue
-				}
-			}
-
-			const breached = longExpiry.length > 0;
-
-			return {
-				attackId: 'storage-signed-url-expiry',
-				status: breached ? 'breached' : 'secure',
-				breached,
-				summary: breached
-					? `${longExpiry.length} buckets allow very long signed URL expiry`
-					: 'Signed URL expiry properly limited',
-				details: {},
-				evidence: breached ? { buckets: longExpiry } : undefined,
-				timestamp: new Date().toISOString(),
-				duration: 0
-			};
-		}
-	},
-	{
 		id: 'storage-metadata-leak',
 		name: 'Storage Metadata Leakage',
 		description: 'Tests if file metadata exposes sensitive information',

@@ -4,11 +4,11 @@
 
 SupaRalph is an open-source security scanner that actively tests your Supabase project for vulnerabilities. Unlike static analyzers, SupaRalph actually attempts to exploit your database to prove what's broken.
 
-![Attacks](https://img.shields.io/badge/attacks-277-red) ![License](https://img.shields.io/badge/license-MIT-green) ![Supabase](https://img.shields.io/badge/supabase-compatible-3ecf8e)
+![Attacks](https://img.shields.io/badge/attacks-269-red) ![License](https://img.shields.io/badge/license-MIT-green) ![Supabase](https://img.shields.io/badge/supabase-compatible-3ecf8e)
 
 ## Features
 
-- **277 Attack Vectors** - Comprehensive coverage of all Supabase attack surfaces
+- **269 Attack Vectors** - Comprehensive coverage of all Supabase attack surfaces
 - **Real-time Scanning** - Watch attacks execute live in a terminal UI
 - **Zero Data Persistence** - No credentials or results stored (session-only)
 - **AI-Powered Fixes** - Copy findings to Supabase AI for tailored SQL fixes
@@ -151,7 +151,7 @@ src/
 ├── lib/
 │   ├── components/        # UI components
 │   ├── engine/
-│   │   ├── attacks/       # 40 attack modules (277 vectors)
+│   │   ├── attacks/       # 40 attack modules (269 vectors)
 │   │   ├── fixes/         # Fix rulesets
 │   │   └── reports/       # Report generation
 │   ├── stores/            # Svelte stores (session-only)
